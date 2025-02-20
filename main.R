@@ -1,78 +1,48 @@
-# code for the article "Possible Effects of the Judicial Redefinition of Rural 
+# Code for the article "Possible Effects of the Judicial Redefinition of Rural 
 # Property Size: A Case Study in the Legal Amazon" submitted to GeoInfo 2025
 
+# This script requires a folder called amz_fc, which is available at
+# https://figshare.com/articles/dataset/Forest_restoration_challenges_in_Brazilian_Amazonia_Data_and_code/22129325?file=39337139
+
 require(dplyr)
+require(terra)
+require(sf)
 
-data <- terra::readRDS("C:/Users/pedro/Downloads/amz_fc/tab/prodes/tab4id.rds")
-px_ha <- 34.4523421771659 * 34.4524159329805 * 1e-04
+###########################################################################
+# Processing
+###########################################################################
 
-data <- data |>
+data <- terra::readRDS("amz_fc/tab/prodes/tab4id.rds") |>
   dplyr::filter(year == 2021) |>
-#  dplyr::mutate(lr_porc = (lr_area * !!px_ha) / area_ha) 
-  dplyr::mutate(lr_porc = (lr_area / lr_forest))
+  dplyr::filter(area_ha > 0) |> # 4 properties have area zero and therefore will be removed
+  dplyr::mutate(old_class = dplyr::case_when(
+    area_fm <= 4 ~ "small",
+    area_fm > 4 & area_fm <= 15 ~ "medium",
+    area_fm > 15 ~ "large"
+  )) |>
+  dplyr::mutate(lr_porc = (lr_area / lr_forest)) |>
+  dplyr::mutate(new_fm = area_fm * (1 - lr_porc)) |>
+  dplyr::mutate(new_class = dplyr::case_when(
+    new_fm <= 4 ~ "small",
+    new_fm > 4 & new_fm <= 15 ~ "medium",
+    new_fm > 15 ~ "large"
+  ))
 
+sf::read_sf("amz_fc/shape/amz_land_tenure.shp") |>
+  dplyr::inner_join(data, by = "id") |>
+  sf::write_sf("result/car-legal-reserve.shp")
 
-zeros = data |>
-  dplyr::filter(area_ha == 0) 
-
-zeros # 4 objetos que possuem area zero e serao removidos
-
-#data2 <- data |>
-#  dplyr::filter(lr_porc > 0.8)
+###########################################################################
+# Plotting
+###########################################################################
 
 # Figure XX of the paper, histogram of legal reserve percentage
 hist(data$lr_porc)
 
-
-# depois retirar estas linhas
-data <- data |>
-  dplyr::filter(area_ha > 0) |>
-  mutate(lr_porc = ifelse(lr_porc > 0.8, 0.8, lr_porc))
-
-dim(data) # sobraram 470.645 propriedades
-
-
-#data <- data |>
-#  dplyr::mutate(lr_porc = dplyr::case_when(
-#    lr_porc < 0.5 ~ 0,
-#    lr_porc >= 0.5 & lr_porc < 0.8 ~ 0.5,
-#    lr_porc >= 0.8 ~ 0.8
-#  ))
-
-data <- data |>
-  dplyr::mutate(tamanho = dplyr::case_when(
-    area_fm <= 4 ~ "pequena",
-    area_fm > 4 & area_fm <= 15 ~ "media",
-    area_fm > 15 ~ "grande"
-  ))
+dim(data) # 470.645 rural properties
 
 antes = table(data$tamanho)
-
-result <- data |>
-  dplyr::mutate(new_fm = area_fm * (1 - lr_porc)) |>
-  dplyr::mutate(n_tamanho = dplyr::case_when(
-    new_fm <= 4 ~ "pequena",
-    new_fm > 4 & new_fm <= 15 ~ "media",
-    new_fm > 15 ~ "grande"
-  ))
-
-depois = table(result$tamanho)
-
-result
-max(result$id)
-min(result$id)
-amz <- sf::read_sf("amz_land_tenure.shp")
-
-amz
-max(amz$id)
-min(amz$id)
-
-shp <- dplyr::inner_join(amz, result, by = "id")
-
-sf::write_sf(shp, "car-legal-reserve.shp")
-
-names(shp)
-unique(shp$tamanho)
+depois = table(data$n_tamanho)
 
 ticks <- c(0.1, 1, 10, 100)
 
@@ -82,19 +52,14 @@ log_valores2 = log10(result$new_fm)
 breaks <- seq(floor(min(c(log_valores1, log_valores2), na.rm=T)), 
               ceiling(max(c(log_valores1, log_valores2), na.rm=T)), by = 0.25)
 
-
 # Figure XX of the paper, histogram of area of rural properties in fiscal modules
 hist1 <- hist(log_valores1, breaks = breaks, col="blue", xaxt = "n")
 axis(1, at = log10(ticks), labels = round(ticks, 1))
-
 
 # Figure XX plotting two histograms of areas together
 hist1 <- hist(log_valores1, breaks = breaks, col="blue", xaxt = "n")
 hist2 <- hist(log_valores2, breaks = breaks, col=rgb(1, 0, 0, 0.5), add=T, xaxt = "n" )
 axis(1, at = log10(ticks), labels = round(ticks, 1))
-
-
-
 
 # Combine frequencies into a matrix
 counts <- rbind(hist1$counts, hist2$counts)
