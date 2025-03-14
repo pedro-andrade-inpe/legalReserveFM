@@ -82,9 +82,12 @@ dev.off()
   
 ### Figure 3, histogram of legal reserve percentage
 
-ticks <- c(0.001, 0.1, 1, 10, 100)
+ticks <- c(0.001, 0.01, 0.1, 1, 10, 100)
 log_v1 <- log10(result$area_fm)
 log_v2 <- log10(result$new_fm)
+
+length(which(log_v2 < 0))
+
 
 breaks <- seq(floor(min(c(log_v1, log_v2), na.rm = TRUE)), 
               ceiling(max(c(log_v1, log_v2), na.rm = TRUE)), by = 0.25)
@@ -97,10 +100,10 @@ pdf("histogram-fiscal-modules.pdf", width = 5.5, height = 3)
 
 ggplot(data_combined, aes(x = value, fill = group)) +
   geom_histogram(breaks = breaks, alpha = 0.5, position = "identity", color = "black") +
-  scale_x_continuous(breaks = log10(ticks), labels = round(ticks, 1)) +
+  scale_x_continuous(breaks = log10(ticks), labels = ticks) +
   scale_fill_manual(values = c("area_fm" = "blue", "new_fm" = "red"),
                     labels = c("area_fm" = "Original", "new_fm" = "New")) +
-  labs(x = "Log10(Area in Fiscal Modules)", y = "Frequency", fill = "Area") +
+  labs(x = "Area in Fiscal Modules (in log scale)", y = "Frequency", fill = "Area") +
   theme(text = element_text(size = 11),
         panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5))
 
